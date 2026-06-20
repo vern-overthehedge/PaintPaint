@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1066</width>
+    <width>1146</width>
     <height>682</height>
    </rect>
   </property>
@@ -26,16 +26,16 @@
    <enum>Qt::LeftToRight</enum>
   </property>
   <property name="styleSheet">
-   <string notr="true">QSlider::groove:horizontal { 
-border-radius: 10px;
-border: 1px solid rgb(0,0,0);
-}
-
-QSlider::handle:horizontal {
+   <string notr="true">QSlider::handle:horizontal {
 background: rgb(255,255,255);
 border: 1px solid rgb(0,0,0);
 width: 2px;
 border-radius: 2px;
+}
+
+QSlider::groove:horizontal {
+border-radius: 10px;
+border:1px solid rgb(0,0,0);
 }
 </string>
   </property>
@@ -178,12 +178,6 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
     <property name="maximum">
      <number>359</number>
     </property>
-    <property name="singleStep">
-     <number>0</number>
-    </property>
-    <property name="pageStep">
-     <number>0</number>
-    </property>
     <property name="orientation">
      <enum>Qt::Horizontal</enum>
     </property>
@@ -192,22 +186,16 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
     <property name="geometry">
      <rect>
       <x>830</x>
-      <y>220</y>
+      <y>240</y>
       <width>160</width>
       <height>20</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">QSlider::groove:horizontal { background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 255), stop:1 rgba(255,0,0,255))}</string>
+     <string notr="true">QSlider::groove:horizontal { background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255,255,255,255), stop:1 rgba(255,0,0,255))}</string>
     </property>
     <property name="maximum">
      <number>255</number>
-    </property>
-    <property name="singleStep">
-     <number>0</number>
-    </property>
-    <property name="pageStep">
-     <number>0</number>
     </property>
     <property name="orientation">
      <enum>Qt::Horizontal</enum>
@@ -227,12 +215,6 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
     </property>
     <property name="maximum">
      <number>255</number>
-    </property>
-    <property name="singleStep">
-     <number>0</number>
-    </property>
-    <property name="pageStep">
-     <number>0</number>
     </property>
     <property name="orientation">
      <enum>Qt::Horizontal</enum>
@@ -285,6 +267,7 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
    </attribute>
    <addaction name="separator"/>
    <addaction name="actionSave"/>
+   <addaction name="actionLoad"/>
    <addaction name="separator"/>
    <addaction name="actionClear_Canvas"/>
    <addaction name="separator"/>
@@ -295,7 +278,7 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1066</width>
+     <width>1146</width>
      <height>18</height>
     </rect>
    </property>
@@ -429,6 +412,11 @@ background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 
   <action name="actionlightblue">
    <property name="text">
     <string>light blue</string>
+   </property>
+  </action>
+  <action name="actionLoad">
+   <property name="text">
+    <string>Load</string>
    </property>
   </action>
  </widget>

@@ -1,7 +1,7 @@
 import sys
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget
-from PyQt6.QtGui import QImage, QPainter, QPen, QColor
+from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QPixmap
 from PyQt6.QtCore import Qt, QPoint
 
 class Canvas(QWidget):
@@ -24,7 +24,7 @@ class Canvas(QWidget):
     def showEvent(self, event):
         if self.image is None:
             self.image = QImage(self.size(), QImage.Format.Format_RGB32)
-            self.image.fill(QColor(255, 255, 255))
+            self.image.fill(QColor.fromHsv(0, 0, 255))
 
     def paintEvent(self, event):
         if self.image is None:
@@ -44,6 +44,7 @@ class Canvas(QWidget):
         if self.tooltype == 'eyedropper':
             colour = self.image.pixel(int(event.position().x()), int(event.position().y()))
             self.Window.setColour(QColor(colour))
+            self.Window.ui.actioneyedropper.trigger()
 
     def mouseMoveEvent(self, event):
         if self.tooltype == 'brush':
@@ -68,8 +69,17 @@ class Canvas(QWidget):
         else:
             self.image.save(filePath)
 
+    def load(self):
+        filePath, _ = QFileDialog.getOpenFileName(self, "Load", "saved art","Images (*.png *.jpg *.bmp *.qrc)")
+        if filePath == "":
+            return
+        else:
+
+            self.image = QImage(filePath).scaled(960,540,Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.update()
+
     def clear(self):
-        self.image.fill(QColor(255, 255, 255))
+        self.image.fill(QColor.fromHsv(0, 0, 255))
         self.update()
 
 
@@ -92,6 +102,7 @@ class Window(QMainWindow):
         self.ui.SizeFrame.setStyleSheet(f"border-radius:{self.Canvas.brushSize / 2}px; ;")
 
         self.ui.actionSave.triggered.connect(self.Canvas.save)
+        self.ui.actionLoad.triggered.connect(self.Canvas.load)
         self.ui.actionClear_Canvas.triggered.connect(self.Canvas.clear)
 
         self.ui.actioneyedropper.triggered.connect(self.eyedropper)
@@ -110,11 +121,11 @@ class Window(QMainWindow):
         self.ui.actionbrown.triggered.connect(self.brownb)
         self.ui.actionlightblue.triggered.connect(self.lightblueb)
 
-        self.ui.SizeSlider.sliderMoved.connect(self.sizechange)
+        self.ui.SizeSlider.valueChanged.connect(self.sizechange)
 
-        self.ui.hueslide.sliderMoved.connect(self.hue)
-        self.ui.saturationslide.sliderMoved.connect(self.saturation)
-        self.ui.valueslide.sliderMoved.connect(self.value)
+        self.ui.hueslide.valueChanged.connect(self.hue)
+        self.ui.saturationslide.valueChanged.connect(self.saturation)
+        self.ui.valueslide.valueChanged.connect(self.value)
 
         self.setColour(self.Canvas.brushColour)
 
@@ -138,8 +149,11 @@ class Window(QMainWindow):
         self.SizeFrame.setStyleSheet(f"background-color: rgb(0,0,0);border-radius:{radius}px;")
         self.ColourFrame.setStyleSheet(f"background-color: {colour.name()}")
         self.Canvas.hue = self.Canvas.brushColour.hue()
+        if self.Canvas.hue < 0: #white and black are achromatic, it has no hue and will try to change the hue slider to -1
+            self.Canvas.hue = 0
         self.Canvas.saturation = self.Canvas.brushColour.saturation()
         self.Canvas.value = self.Canvas.brushColour.value()
+
 
         self.ui.hueslide.setValue(self.Canvas.brushColour.hue())
         self.ui.saturationslide.setValue(self.Canvas.brushColour.saturation())
