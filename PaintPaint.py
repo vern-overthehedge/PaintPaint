@@ -1,8 +1,10 @@
 import sys
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QWidget
-from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QPixmap
+from PyQt6.QtGui import QImage, QPainter, QPen, QColor, QPixmap,QCursor
 from PyQt6.QtCore import Qt, QPoint
+
+
 
 class Canvas(QWidget):
     def __init__(self, parent=None):
@@ -21,10 +23,15 @@ class Canvas(QWidget):
 
         self.tooltype = 'brush'
 
+        self.history = []
+
     def showEvent(self, event):
         if self.image is None:
             self.image = QImage(self.size(), QImage.Format.Format_RGB32)
-            self.image.fill(QColor.fromHsv(0, 0, 255))
+            self.image.fill(QColor.fromHsv(0, 0,255))
+            self.setFixedSize(self.image.width(), self.image.height())
+            self.history.append(QPixmap(self.image))
+
 
     def paintEvent(self, event):
         if self.image is None:
@@ -33,6 +40,7 @@ class Canvas(QWidget):
         painter.drawImage(0, 0, self.image)
 
     def mousePressEvent(self, event):
+
         if self.tooltype == 'brush':
             if event.button() == Qt.MouseButton.LeftButton:
                 self.drawing = True
@@ -44,10 +52,17 @@ class Canvas(QWidget):
         if self.tooltype == 'eyedropper':
             colour = self.image.pixel(int(event.position().x()), int(event.position().y()))
             self.Window.setColour(QColor(colour))
-            self.Window.ui.actioneyedropper.trigger()
+            self.Window.ui.actioneyedropper.blockSignals(True)
+            self.Window.ui.actioneyedropper.setChecked(False)
+            self.Window.ui.actioneyedropper.blockSignals(False)
+            self.history.pop(-1)
+            self.tooltype = 'brush'
+        if self.tooltype == 'filltool':
+            self.floodfill(int(event.position().x()), int(event.position().y()), self.brushColour)
+
 
     def mouseMoveEvent(self, event):
-        if self.tooltype == 'brush':
+        if self.tooltype == 'brush': # doesnt draw while eyedropping or filling
             if (event.buttons() & Qt.MouseButton.LeftButton) and self.drawing:
                 if self.image is None:
                     return
@@ -57,10 +72,13 @@ class Canvas(QWidget):
                 self.lastPoint = event.position()
                 self.update()
 
+
+
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.lastPoint = event.position()
             self.drawing = False
+            self.history.append(QPixmap(self.image)) #doesnt add to history until line has been completed
 
     def save(self):
         filePath, _ = QFileDialog.getSaveFileName(self, "Save Image", "saved art", "Images (*.png *.jpg *.bmp *.qrc)")
@@ -74,13 +92,75 @@ class Canvas(QWidget):
         if filePath == "":
             return
         else:
-
             self.image = QImage(filePath).scaled(960,540,Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.setFixedSize(self.image.width(), self.image.height())
             self.update()
+            self.history.append(QPixmap(self.image))
+
+
 
     def clear(self):
         self.image.fill(QColor.fromHsv(0, 0, 255))
+        self.image = self.image.scaled(960,540)
+        self.setFixedSize(self.image.width(), self.image.height())
         self.update()
+        self.history.append("clear")
+        print(self.history)
+
+
+    def undo(self):
+        if len(self.history) > 0:
+            if len(self.history) == 1:
+                self.image = QImage(self.history[-1]) #will always be blank canvas, undoing past here may try to delete in an empty list, causing crash
+            else:
+                self.history.pop(-1)
+                if self.history[-1] == "clear": #cleared canvas doesnt work correctly for some reason
+                    self.image = QImage(self.history[0])
+                else:
+                    self.image = QImage(self.history[-1])
+            self.setFixedSize(self.image.width(), self.image.height())
+            self.update()
+
+    def floodfill(self,x,y,newcolour):
+        oldcolour = self.image.pixel(x, y)
+        newcolour = QColor(newcolour).rgb()
+        if self.image.pixel(x,y) == newcolour:
+            return
+        stack = [(x,y)]
+        visited = set()
+        while stack:
+            px, py = stack.pop()
+            if (px, py) in visited:
+                continue
+            visited.add((px, py))
+            if not ((px < 0 or px >= self.image.width() or
+                    py < 0 or py >= self.image.height() or
+                    self.image.pixel(px, py) != oldcolour)):
+                self.image.setPixel(px,py, newcolour)
+                stack.append((px + 1,py))
+                stack.append((px - 1, py))
+                stack.append((px, py + 1))
+                stack.append((px, py - 1))
+        self.update()
+
+
+    def updateCursor(self):
+        size = self.brushSize
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setPen(QPen(QColor.fromHsv(self.hue,self.saturation,self.value), 1))
+        painter.drawEllipse(0, 0, size - 1, size - 1)
+        painter.end()
+        self.setCursor(QCursor(pixmap))
+
+
+
+
+
+
+
+
 
 
 class Window(QMainWindow):
@@ -92,8 +172,7 @@ class Window(QMainWindow):
 
         self.Canvas = self.ui.Canvas
 
-        self.window = QImage(self.size(), QImage.Format.Format_RGB32)
-        self.window.fill(QColor(200, 200, 200))
+
 
         self.ui.SizeSlider.setValue(self.Canvas.brushSize)
 
@@ -101,25 +180,29 @@ class Window(QMainWindow):
         self.ui.SizeFrame.setFixedSize(self.Canvas.brushSize, self.Canvas.brushSize)
         self.ui.SizeFrame.setStyleSheet(f"border-radius:{self.Canvas.brushSize / 2}px; ;")
 
+            #affects canvas
         self.ui.actionSave.triggered.connect(self.Canvas.save)
         self.ui.actionLoad.triggered.connect(self.Canvas.load)
         self.ui.actionClear_Canvas.triggered.connect(self.Canvas.clear)
+        self.ui.actionUndo.triggered.connect(self.Canvas.undo)
 
+            #tools
         self.ui.actioneyedropper.triggered.connect(self.eyedropper)
-
-        self.ui.actionblack.triggered.connect(self.blackb)
-        self.ui.actionred.triggered.connect(self.redb)
-        self.ui.actionorange.triggered.connect(self.orangeb)
-        self.ui.actionyellow.triggered.connect(self.yellowb)
-        self.ui.actiongreen.triggered.connect(self.greenb)
-        self.ui.actionblue.triggered.connect(self.blueb)
-        self.ui.actionpurple.triggered.connect(self.purpleb)
-        self.ui.actionwhite.triggered.connect(self.whiteb)
-        self.ui.actiongrey.triggered.connect(self.greyb)
-        self.ui.actionpink.triggered.connect(self.pinkb)
-        self.ui.actionlime.triggered.connect(self.limeb)
-        self.ui.actionbrown.triggered.connect(self.brownb)
-        self.ui.actionlightblue.triggered.connect(self.lightblueb)
+        self.ui.actionFill.triggered.connect(self.filltool)
+            #colours
+        self.ui.blackpush.clicked.connect(self.blackb)
+        self.ui.redpush.clicked.connect(self.redb)
+        self.ui.orangepush.clicked.connect(self.orangeb)
+        self.ui.yellowpush.clicked.connect(self.yellowb)
+        self.ui.greenpush.clicked.connect(self.greenb)
+        self.ui.bluepush.clicked.connect(self.blueb)
+        self.ui.purplepush.clicked.connect(self.purpleb)
+        self.ui.whitepush.clicked.connect(self.whiteb)
+        self.ui.greypush.clicked.connect(self.greyb)
+        self.ui.pinkpush.clicked.connect(self.pinkb)
+        self.ui.limepush.clicked.connect(self.limeb)
+        self.ui.brownpush.clicked.connect(self.brownb)
+        self.ui.cyanpush.clicked.connect(self.cyanb)
 
         self.ui.SizeSlider.valueChanged.connect(self.sizechange)
 
@@ -139,7 +222,19 @@ class Window(QMainWindow):
 
     def eyedropper(self):
         if self.Canvas.tooltype != 'eyedropper':
+            self.ui.actionFill.blockSignals(True)
+            self.ui.actionFill.setChecked(False) #doesnt activate fill tool
+            self.ui.actionFill.blockSignals(False) #unchecks filltool so it doesnt get confused
             self.Canvas.tooltype = 'eyedropper'
+        else:
+            self.Canvas.tooltype = 'brush'
+
+    def filltool(self):
+        if self.Canvas.tooltype != 'filltool':
+            self.ui.actioneyedropper.blockSignals(True)
+            self.ui.actioneyedropper.setChecked(False)
+            self.ui.actioneyedropper.blockSignals(False)
+            self.Canvas.tooltype = 'filltool'
         else:
             self.Canvas.tooltype = 'brush'
 
@@ -154,10 +249,55 @@ class Window(QMainWindow):
         self.Canvas.saturation = self.Canvas.brushColour.saturation()
         self.Canvas.value = self.Canvas.brushColour.value()
 
+#most of the slider will stay the same, just gives feedback on what colour is being chosen
+        self.ui.hueslide.setStyleSheet(f"""QSlider::handle:horizontal {{
+border: 1px solid rgb(0,0,0);
+width: 15px;
+border-radius: 2px;
+background:hsv({self.Canvas.hue},255,255);
+}}
 
-        self.ui.hueslide.setValue(self.Canvas.brushColour.hue())
+QSlider::groove:horizontal {{
+border-radius: 10px;
+border:1px solid rgb(0,0,0);
+background:qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 0, 0, 255), stop:0.166 rgba(255, 255, 0, 255), stop:0.333 rgba(0, 255, 0, 255), stop:0.5 rgba(0, 255, 255, 255), stop:0.666 rgba(0, 0, 255, 255), stop:0.833 rgba(255, 0, 255, 255), stop:1 rgba(255, 0, 0, 255));
+}}
+""")
+
+        self.ui.saturationslide.setStyleSheet(f"""QSlider::handle:horizontal {{
+border: 1px solid rgb(0,0,0);
+width: 15px;
+border-radius: 2px;
+background:hsv({self.Canvas.hue},{self.Canvas.saturation},255);
+}}
+
+QSlider::groove:horizontal {{
+border-radius: 10px;
+border:1px solid rgb(0,0,0);
+background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 hsv({self.Canvas.hue},0,255), stop:1 hsv({self.Canvas.hue},255,255));
+}}
+""")
+        self.ui.valueslide.setStyleSheet(f"""QSlider::handle:horizontal {{
+border: 1px solid rgb(255,255,255);
+width: 15px;
+border-radius: 2px;
+background: hsv({self.Canvas.hue},255,{self.Canvas.value});
+}}
+
+QSlider::groove:horizontal {{
+border-radius: 10px;
+border:1px solid rgb(0,0,0);
+ background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 hsv({self.Canvas.hue},0,0), stop:1 hsv({self.Canvas.hue},255,255))
+}}
+"""
+)
+
+
+
+        self.ui.hueslide.setValue(self.Canvas.brushColour.hue()) #for if a preset colour is chosen, sets sliders to relevant place
         self.ui.saturationslide.setValue(self.Canvas.brushColour.saturation())
         self.ui.valueslide.setValue(self.Canvas.brushColour.value())
+        self.Canvas.updateCursor()
 
     def blackb(self):
         self.setColour(QColor(0, 0, 0))
@@ -178,7 +318,7 @@ class Window(QMainWindow):
         self.setColour(QColor(0, 32, 255))
 
     def purpleb(self):
-        self.setColour(QColor(160, 32, 255))
+        self.setColour(QColor(144, 0, 121))
 
     def whiteb(self):
         self.setColour(QColor(255, 255, 255))
@@ -195,7 +335,7 @@ class Window(QMainWindow):
     def brownb(self):
         self.setColour(QColor(150, 75, 0))
 
-    def lightblueb(self):
+    def cyanb(self):
         self.setColour(QColor(80, 208, 255))
 
     def hue(self, value):
@@ -220,5 +360,5 @@ class Window(QMainWindow):
 app = QApplication(sys.argv)
 app.setStyle("windowsvista")
 window = Window()
-window.show()
+window.showMaximized()
 sys.exit(app.exec())
