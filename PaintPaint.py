@@ -149,9 +149,10 @@ class Canvas(QWidget):
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
-        painter.setPen(QPen(QColor.fromHsv(self.hue,self.saturation,self.value), 1))
+        painter.setPen(QPen(QColor(0,0,0), 1))
+        painter.setBrush(QColor.fromHsv(self.hue,self.saturation,self.value,255 - (self.brushSize+50)))
         painter.drawEllipse(0, 0, size - 1, size - 1)
-        painter.end()
+
         self.setCursor(QCursor(pixmap))
 
 
