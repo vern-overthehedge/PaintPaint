@@ -1,4 +1,4 @@
-This is PaintPaint, a digital drawing application
+This is PaintPaint, a digital drawing application, I submitted this for my year 12 software engineering project
 
 I created this application using Qt designer and the Qt python libraries
 
